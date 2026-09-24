@@ -2,6 +2,10 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.12
     container_name: olap_clickhouse
+    environment:
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     ports:
       - "8123:8123"
       - "9000:9000"
