@@ -12,6 +12,7 @@ services:
     volumes:
       # DDL + sample: только scripts/init_ch.sh (ClickHouse не использует initdb.d)
       - ch_data:/var/lib/clickhouse
+      - ./data/raw:/var/lib/clickhouse/user_files
     ulimits:
       nofile:
         soft: 262144
