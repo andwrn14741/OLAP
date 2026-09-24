@@ -12,6 +12,6 @@ cd Стенд && docker compose up -d && ./scripts/init_ch.sh
 data/raw/ — файлы sales.csv, customers.csv
 
 ## Данные
-ФИО: ...
-Группа: ...
+ФИО: Ворон Андрей Дмитриевич
+Группа: ИИ-231
 Домен: розничные продажи
