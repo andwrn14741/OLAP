@@ -9,30 +9,53 @@ cd ~/OLAP && docker compose up -d && ./scripts/init_ch.sh
 - Metabase: 3000
 
 ## Где сырьё
-data/raw/ — файлы sales.csv, sales2.csv, sales3.csv
+data/raw/ — 3 CSV, домен: розничная продажа автомобильных запчастей
 
-### Описание полей sales.csv
-- order_id    (int)    — номер заказа
-- customer_id (int)    — ID клиента
-- product_id  (int)    — ID товара
-- quantity    (int)    — количество единиц в заказе
-- price       (float)  — цена за единицу
-- order_date  (date)   — дата заказа
+| Файл | Строк | Смысл |
+|---|---|---|
+| purchases.csv | 2 000 | Закупки у поставщиков |
+| sales.csv | 20 000 | Продажи клиентам (главный факт) |
+| logistics.csv | ~18 000 | Отгрузки; ~10% заказов — самовывоз |
 
-sales2.csv и sales3.csv имеют аналогичную структуру —
-используются для проверки объединения нескольких источников.
+### purchases.csv — закупки
+- purchase_id     (int)   — ID закупки
+- supplier_id     (str)   — ID поставщика
+- product_id      (int)   — ID товара
+- product_name    (str)   — наименование товара
+- quantity        (int)   — количество штук
+- price_per_unit  (float) — закупочная цена за штуку
+- total_amount    (float) — общая сумма закупки
+- purchase_date   (date)  — дата закупки
+
+### sales.csv — продажи
+- order_id        (int)   — ID заказа
+- customer_id     (str)   — ID клиента
+- product_id      (int)   — ID товара
+- product_name    (str)   — наименование товара
+- quantity        (int)   — количество штук
+- price_per_unit  (float) — розничная цена за штуку
+- total_amount    (float) — общая сумма продажи
+- sale_date       (date)  — дата продажи
+
+### logistics.csv — логистика
+- shipment_id     (int)   — ID отгрузки
+- order_id        (int)   — ID связанного заказа (FK на sales.order_id)
+- carrier         (str)   — перевозчик
+- product_id      (int)   — ID товара
+- product_name    (str)   — наименование товара
+- quantity        (int)   — количество штук
+- price_per_unit  (float) — стоимость доставки за единицу
+- total_amount    (float) — общая сумма доставки
+- shipment_date   (date)  — дата отгрузки
 
 ## Доказательство, что стенд жив
-
-```
 $ curl http://localhost:8123/ping
 Ok.
 
 $ curl 'http://localhost:8123/?query=SELECT+1'
 1
-```
 
 ## Данные
 ФИО: Ворон Андрей Дмитриевич
 Группа: ИИ-231
-Домен: розничные продажи
+Домен: розничная продажа автомобильных запчастей
