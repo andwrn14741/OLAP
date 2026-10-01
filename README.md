@@ -97,3 +97,13 @@ $ docker exec olap_clickhouse clickhouse-client --query \
 - ФИО: Ворон Андрей Дмитриевич
 - Группа: ИИ-231
 - Домен: розничная продажа автомобильных запчастей
+
+
+
+## DuckDB — витрина (З03)
+
+### Создание таблиц
+
+```bash
+cd ~/OLAP
+~/.duckdb/cli/latest/duckdb data/olap.duckdb < sql/ddl_duckdb.sql
