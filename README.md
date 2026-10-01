@@ -107,3 +107,25 @@ $ docker exec olap_clickhouse clickhouse-client --query \
 ```bash
 cd ~/OLAP
 ~/.duckdb/cli/latest/duckdb data/olap.duckdb < sql/ddl_duckdb.sql
+
+
+## ELT (З05)
+
+Загрузка одной командой:
+
+```bash
+bash etl/run_etl.sh
+```
+
+Скрипт делает четыре шага:
+
+1. **DDL** — создаёт таблицы (`etl/01_ddl.sql`).
+2. **Справочники** — `dim_product`, `dim_customer`, `dim_supplier`, `dim_carrier`, `dim_date` (`etl/02_load_dims.sql`).
+3. **Факты** — `fact_sales`, `fact_purchases`, `fact_logistics` (`etl/03_load_facts.sql`).
+4. **Проверки** — пустые ключи, диапазоны, дубли, «сироты», число строк (`etl/04_checks.sql`).
+
+**Остановка при ошибке.** Любая проверка через `error()` возвращает ненулевой код; `run_etl.sh` использует `set -e`, поэтому ETL прерывается.
+
+**Повторная загрузка.** Каждый шаг начинается с `TRUNCATE` затронутых таблиц. Повторный запуск `run_etl.sh` перезаписывает данные, не удваивая их.
+
+**Доказательство:** `etl/idempotency_log.txt` — два прогона подряд; `COUNT(*)` и `SUM(total_amount)` совпадают.
