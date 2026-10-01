@@ -52,6 +52,7 @@
 -- Главная метрика: оборот без возвратов
 SELECT SUM(total_amount) AS revenue
 FROM fact_sales;
+**Зафиксированное число:** 824 162 059.01
 
 ## 8. Риски / cut
 
