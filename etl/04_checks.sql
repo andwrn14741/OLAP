@@ -84,12 +84,28 @@ SELECT CASE
 
 SELECT CASE
     WHEN (
-        SELECT COUNT(*)
-        FROM fact_sales f
-        LEFT JOIN dim_product p ON f.product_id = p.product_id
-        WHERE p.product_id IS NULL
+        SELECT COUNT(*) FROM fact_sales f
+        WHERE (
+            SELECT COUNT(*)
+            FROM dim_product p
+            WHERE p.product_id = f.product_id
+              AND f.sale_date >= p.valid_from
+              AND (p.valid_to IS NULL OR f.sale_date < p.valid_to)
+        ) <> 1
     ) > 0
-    THEN error('CHECK FAILED: fact_sales — product_id нет в dim_product')
+    THEN error('CHECK FAILED: fact_sales — на дату продажи нет ровно одной версии товара')
+    ELSE 1 END;
+
+SELECT CASE
+    WHEN (
+        SELECT COUNT(*) FROM (
+            SELECT product_id
+            FROM dim_product
+            GROUP BY product_id
+            HAVING SUM(CASE WHEN is_current THEN 1 ELSE 0 END) <> 1
+        )
+    ) > 0
+    THEN error('CHECK FAILED: dim_product — у товара не ровно одна текущая версия')
     ELSE 1 END;
 
 SELECT CASE

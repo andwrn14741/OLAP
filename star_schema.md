@@ -44,10 +44,14 @@ erDiagram
         date shipment_date
     }
     dim_product {
-        int product_id PK
+        int product_sk PK
+        int product_id
         string product_name
         string category
         string brand
+        date valid_from
+        date valid_to
+        boolean is_current
     }
     dim_store {
         int store_id PK

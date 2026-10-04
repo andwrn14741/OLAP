@@ -2,7 +2,7 @@
 -- З03. DDL витрины сети «АвтоДеталь»
 -- Движок: DuckDB
 -- Деньги: DECIMAL(18,2), не FLOAT
--- SCD2 для dim_product подключается на З06; сейчас одна текущая строка на товар
+-- dim_product хранит историю категории (SCD2)
 -- ============================================================
 
 DROP TABLE IF EXISTS fact_sales;
@@ -25,11 +25,17 @@ CREATE TABLE dim_store (
     store_format  VARCHAR      NOT NULL
 );
 
+-- Одна сущность (product_id) может иметь несколько версий.
+-- product_sk — суррогат версии, product_id — бизнес-ключ.
 CREATE TABLE dim_product (
-    product_id    INTEGER      PRIMARY KEY,
+    product_sk    INTEGER      PRIMARY KEY,
+    product_id    INTEGER      NOT NULL,
     product_name  VARCHAR      NOT NULL,
     category      VARCHAR      NOT NULL,
-    brand         VARCHAR      NOT NULL
+    brand         VARCHAR      NOT NULL,
+    valid_from    DATE         NOT NULL,
+    valid_to      DATE,
+    is_current    BOOLEAN      NOT NULL
 );
 
 CREATE TABLE dim_customer (

@@ -27,7 +27,9 @@ SELECT
     p.brand,
     SUM(f.quantity) AS sold_units
 FROM fact_sales f
-JOIN dim_product p ON f.product_id = p.product_id
+JOIN dim_product p
+  ON f.product_id = p.product_id
+ AND p.is_current
 GROUP BY p.product_name, p.brand
 ORDER BY sold_units DESC
 LIMIT 10;
@@ -69,7 +71,10 @@ SELECT
         2
     )                                                AS share_pct
 FROM fact_sales f
-JOIN dim_product p ON f.product_id = p.product_id
+JOIN dim_product p
+  ON f.product_id = p.product_id
+ AND f.sale_date >= p.valid_from
+ AND (p.valid_to IS NULL OR f.sale_date < p.valid_to)
 GROUP BY p.category
 ORDER BY category_revenue DESC;
 

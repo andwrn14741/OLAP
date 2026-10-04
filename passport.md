@@ -35,7 +35,7 @@
 
 | Dim | Ключ | Важные атрибуты | SCD1 / SCD2 / нет |
 |-----|------|-----------------|-------------------|
-| `dim_product` | product_id | product_name, category, brand | **SCD2** — история категории; реализация на З06 |
+| `dim_product` | product_id (бизнес-ключ), product_sk (версия) | product_name, category, brand, valid_from, valid_to, is_current | **SCD2** — с 2025-07-01 категория меняется у антифриза, ламп H4/H7 и щёток |
 | `dim_store` | store_id | store_name, city, region, store_format | SCD1 |
 | `dim_customer` | customer_id | customer_name, customer_type, region | SCD1 |
 | `dim_supplier` | supplier_id | supplier_name, country | SCD1 |
@@ -61,5 +61,5 @@ FROM fact_sales;
 ## 8. Риски / cut
 
 Возвраты не учтены: в сырье их нет, метрика «оборот» — валовая.
-История категории товара (`dim_product`) заявлена как SCD2; до З06 в витрине лежит только текущая версия.
+Категория товара историческая: отчёт джойнится к версии `dim_product`, действовавшей на `sale_date`.
 Обогащение по VIN и маркам авто, кластер ClickHouse, Kafka и ML вне проекта — см. `cut.md`.

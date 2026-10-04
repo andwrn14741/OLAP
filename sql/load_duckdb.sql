@@ -31,9 +31,20 @@ FROM read_csv(
     }
 );
 
--- Текущая категория. Полная история версий лежит в products.csv и грузится на З06.
-INSERT INTO dim_product (product_id, product_name, category, brand)
-SELECT product_id, product_name, category, brand
+-- Все версии товара. Пустой valid_to — текущая строка.
+INSERT INTO dim_product (
+    product_sk, product_id, product_name, category, brand,
+    valid_from, valid_to, is_current
+)
+SELECT
+    ROW_NUMBER() OVER (ORDER BY product_id, valid_from) AS product_sk,
+    product_id,
+    product_name,
+    category,
+    brand,
+    valid_from::DATE,
+    NULLIF(valid_to, '')::DATE,
+    COALESCE(valid_to, '') = '' AS is_current
 FROM read_csv(
     'data/raw/products.csv',
     header = true,
@@ -45,8 +56,7 @@ FROM read_csv(
         'valid_from': 'VARCHAR',
         'valid_to': 'VARCHAR'
     }
-)
-WHERE COALESCE(valid_to, '') = '';
+);
 
 INSERT INTO dim_customer (customer_id, customer_name, customer_type, region)
 SELECT customer_id, customer_name, customer_type, region
