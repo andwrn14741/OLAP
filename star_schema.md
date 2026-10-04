@@ -1,9 +1,12 @@
-# Набросок star-схемы
+# Star-схема сети «АвтоДеталь»
+
+Одна строка `fact_sales` = одна позиция заказа в магазине сети.
 
 ```mermaid
 erDiagram
     fact_sales }o--|| dim_product : product_id
     fact_sales }o--|| dim_customer : customer_id
+    fact_sales }o--|| dim_store : store_id
     fact_sales }o--|| dim_date : sale_date
     fact_logistics }o--|| fact_sales : order_id
     fact_logistics }o--|| dim_carrier : carrier
@@ -13,6 +16,7 @@ erDiagram
 
     fact_sales {
         int order_id
+        int store_id
         int product_id
         string customer_id
         int quantity
@@ -40,13 +44,26 @@ erDiagram
         date shipment_date
     }
     dim_product {
-        int product_id PK
+        int product_sk PK
+        int product_id
         string product_name
         string category
+        string brand
+        date valid_from
+        date valid_to
+        boolean is_current
+    }
+    dim_store {
+        int store_id PK
+        string store_name
+        string city
+        string region
+        string store_format
     }
     dim_customer {
         string customer_id PK
         string customer_name
+        string customer_type
         string region
     }
     dim_supplier {

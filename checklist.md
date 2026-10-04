@@ -1,0 +1,21 @@
+# Чеклист сдачи · сеть «АвтоДеталь»
+
+- [x] Стенд поднимается из `docker-compose.yml` в корне, порты 8123 / 9000 / 3000 записаны
+- [x] Сырьё в `data/raw/`, поля описаны в README, домен — сеть автозапчастей, не один прилавок
+- [x] Главный факт 65 000 строк, весь слой сырья около 130 тысяч
+- [x] `passport.md`: grain, меры, три вопроса, эталон SQL, кандидат SCD2 закрыт реализацией
+- [x] `cut.md`: что вне проекта и чем это портит отчёты
+- [x] Star-схема в `star_schema.md`
+- [x] DuckDB: `sql/ddl_duckdb.sql`, загрузка, деньги в DECIMAL
+- [x] Повторная загрузка не удваивает факт (`etl/idempotency_log.txt`)
+- [x] Три вопроса отвечены в `sql/analytics.sql`, есть окна `SUM() OVER` и `RANK()`
+- [x] Эталон в `sql/canonical_metric.sql` совпадает с паспортом: 788 793 643.00
+- [x] ELT: справочники раньше фактов, плохие данные зовут `error()` и роняют `run_etl.sh`
+- [x] SCD2 на `dim_product`: две версии щёток, антифриза и ламп видны в `sql/scd2_demo.sql`
+- [x] ClickHouse MergeTree, Decimal, `ORDER BY` не назван уникальным ключом
+- [x] Сверка DuckDB ↔ ClickHouse: count и sum (`etl/ch_reconcile_log.txt`)
+- [x] Партиция по месяцу есть, смысл записан в `notes/z08_partitions.md`
+- [x] Сводка день × магазин, сумма совпала с фактом (`notes/z09.md`)
+- [x] Дашборд Metabase читает ClickHouse, фильтр периода, SQL виджетов в `dashboards/`
+- [x] Карточка и SQL за 2025 год дали одно число (`notes/z11_sverka.md`)
+- [x] README начинается с пяти шагов и устного пути данных

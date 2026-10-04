@@ -1,10 +1,10 @@
 -- ============================================================
--- З03. Загрузка сырья из data/raw/ в таблицы DuckDB
--- Запуск: duckdb data/olap.duckdb < sql/load_duckdb.sql
+-- З03. Загрузка сырья data/raw/ в DuckDB
+-- Запуск из корня репозитория, после sql/ddl_duckdb.sql:
+--   duckdb data/olap.duckdb < sql/load_duckdb.sql
+-- Повторный запуск очищает таблицы и заливает их заново.
 -- ============================================================
 
--- Идемпотентность: очищаем таблицы перед загрузкой,
--- чтобы повторный запуск не удваивал строки
 TRUNCATE fact_sales;
 TRUNCATE fact_purchases;
 TRUNCATE fact_logistics;
@@ -12,58 +12,164 @@ TRUNCATE dim_product;
 TRUNCATE dim_customer;
 TRUNCATE dim_supplier;
 TRUNCATE dim_carrier;
+TRUNCATE dim_store;
 TRUNCATE dim_date;
 
--- Факты
-COPY fact_sales      FROM 'data/raw/sales.csv'      (HEADER, DELIMITER ',');
-COPY fact_purchases  FROM 'data/raw/purchases.csv'  (HEADER, DELIMITER ',');
-COPY fact_logistics  FROM 'data/raw/logistics.csv'  (HEADER, DELIMITER ',');
+-- Справочники раньше фактов: иначе в факте остаются ссылки в никуда.
 
--- dim_product — из fact_sales + назначенные категории
-INSERT INTO dim_product (product_id, product_name, category)
+INSERT INTO dim_store (store_id, store_name, city, region, store_format)
+SELECT store_id, store_name, city, region, store_format
+FROM read_csv(
+    'data/raw/stores.csv',
+    header = true,
+    columns = {
+        'store_id': 'INTEGER',
+        'store_name': 'VARCHAR',
+        'city': 'VARCHAR',
+        'region': 'VARCHAR',
+        'store_format': 'VARCHAR'
+    }
+);
+
+-- Все версии товара. Пустой valid_to — текущая строка.
+INSERT INTO dim_product (
+    product_sk, product_id, product_name, category, brand,
+    valid_from, valid_to, is_current
+)
 SELECT
+    ROW_NUMBER() OVER (ORDER BY product_id, valid_from) AS product_sk,
     product_id,
-    MIN(product_name) AS product_name,
-    CASE
-        WHEN MIN(product_name) LIKE 'Тормозные колодки%'    THEN 'Тормозная система'
-        WHEN MIN(product_name) = 'Тормозная жидкость DOT-4' THEN 'Тормозная система'
-        WHEN MIN(product_name) IN ('Масляный фильтр', 'Воздушный фильтр') THEN 'Фильтры'
-        WHEN MIN(product_name) IN ('Свечи зажигания', 'Генератор', 'Стартер') THEN 'Зажигание'
-        WHEN MIN(product_name) LIKE 'Амортизатор%'           THEN 'Подвеска'
-        WHEN MIN(product_name) IN ('Ремень ГРМ', 'Помпа водяная', 'Радиатор охлаждения') THEN 'Двигатель'
-        WHEN MIN(product_name) LIKE 'Аккумулятор%'           THEN 'Электрика'
-        WHEN MIN(product_name) IN ('Лампы H4', 'Лампы H7')   THEN 'Электрика'
-        WHEN MIN(product_name) IN ('Моторное масло 5W-40', 'Антифриз G12') THEN 'Жидкости'
-        WHEN MIN(product_name) = 'Щётки стеклоочистителя'    THEN 'Аксессуары'
-        ELSE 'Прочее'
-    END AS category
-FROM fact_sales
-GROUP BY product_id;
+    product_name,
+    category,
+    brand,
+    valid_from::DATE,
+    NULLIF(valid_to, '')::DATE,
+    COALESCE(valid_to, '') = '' AS is_current
+FROM read_csv(
+    'data/raw/products.csv',
+    header = true,
+    columns = {
+        'product_id': 'INTEGER',
+        'product_name': 'VARCHAR',
+        'category': 'VARCHAR',
+        'brand': 'VARCHAR',
+        'valid_from': 'VARCHAR',
+        'valid_to': 'VARCHAR'
+    }
+);
 
--- dim_customer — из fact_sales
-INSERT INTO dim_customer (customer_id, customer_name, region)
-SELECT DISTINCT customer_id, NULL, NULL
-FROM fact_sales;
+INSERT INTO dim_customer (customer_id, customer_name, customer_type, region)
+SELECT customer_id, customer_name, customer_type, region
+FROM read_csv(
+    'data/raw/customers.csv',
+    header = true,
+    columns = {
+        'customer_id': 'VARCHAR',
+        'customer_name': 'VARCHAR',
+        'customer_type': 'VARCHAR',
+        'region': 'VARCHAR'
+    }
+);
 
--- dim_supplier — из fact_purchases
 INSERT INTO dim_supplier (supplier_id, supplier_name, country)
-SELECT DISTINCT supplier_id, NULL, NULL
-FROM fact_purchases;
+SELECT supplier_id, supplier_name, country
+FROM read_csv(
+    'data/raw/suppliers.csv',
+    header = true,
+    columns = {
+        'supplier_id': 'VARCHAR',
+        'supplier_name': 'VARCHAR',
+        'country': 'VARCHAR'
+    }
+);
 
--- dim_carrier — из fact_logistics
 INSERT INTO dim_carrier (carrier, delivery_type)
-SELECT DISTINCT carrier, NULL
-FROM fact_logistics;
+SELECT carrier, delivery_type
+FROM read_csv(
+    'data/raw/carriers.csv',
+    header = true,
+    columns = {
+        'carrier': 'VARCHAR',
+        'delivery_type': 'VARCHAR'
+    }
+);
 
--- dim_date — все даты из трёх фактов
+INSERT INTO fact_sales (
+    order_id, customer_id, store_id, product_id, product_name,
+    quantity, price_per_unit, total_amount, sale_date
+)
+SELECT
+    order_id, customer_id, store_id, product_id, product_name,
+    quantity, price_per_unit, total_amount, sale_date
+FROM read_csv(
+    'data/raw/sales.csv',
+    header = true,
+    columns = {
+        'order_id': 'INTEGER',
+        'customer_id': 'VARCHAR',
+        'store_id': 'INTEGER',
+        'product_id': 'INTEGER',
+        'product_name': 'VARCHAR',
+        'quantity': 'INTEGER',
+        'price_per_unit': 'DECIMAL(18,2)',
+        'total_amount': 'DECIMAL(18,2)',
+        'sale_date': 'DATE'
+    }
+);
+
+INSERT INTO fact_purchases (
+    purchase_id, supplier_id, product_id, product_name,
+    quantity, price_per_unit, total_amount, purchase_date
+)
+SELECT
+    purchase_id, supplier_id, product_id, product_name,
+    quantity, price_per_unit, total_amount, purchase_date
+FROM read_csv(
+    'data/raw/purchases.csv',
+    header = true,
+    columns = {
+        'purchase_id': 'INTEGER',
+        'supplier_id': 'VARCHAR',
+        'product_id': 'INTEGER',
+        'product_name': 'VARCHAR',
+        'quantity': 'INTEGER',
+        'price_per_unit': 'DECIMAL(18,2)',
+        'total_amount': 'DECIMAL(18,2)',
+        'purchase_date': 'DATE'
+    }
+);
+
+INSERT INTO fact_logistics (
+    shipment_id, order_id, carrier, product_id, product_name,
+    quantity, price_per_unit, total_amount, shipment_date
+)
+SELECT
+    shipment_id, order_id, carrier, product_id, product_name,
+    quantity, price_per_unit, total_amount, shipment_date
+FROM read_csv(
+    'data/raw/logistics.csv',
+    header = true,
+    columns = {
+        'shipment_id': 'INTEGER',
+        'order_id': 'INTEGER',
+        'carrier': 'VARCHAR',
+        'product_id': 'INTEGER',
+        'product_name': 'VARCHAR',
+        'quantity': 'INTEGER',
+        'price_per_unit': 'DECIMAL(18,2)',
+        'total_amount': 'DECIMAL(18,2)',
+        'shipment_date': 'DATE'
+    }
+);
+
 INSERT INTO dim_date (date_id, year, month, day, weekday, quarter)
 SELECT DISTINCT
-    d::DATE                                AS date_id,
-    EXTRACT(YEAR    FROM d)::INTEGER       AS year,
-    EXTRACT(MONTH   FROM d)::INTEGER       AS month,
-    EXTRACT(DAY     FROM d)::INTEGER       AS day,
-    EXTRACT(ISODOW  FROM d)::INTEGER       AS weekday,
-    EXTRACT(QUARTER FROM d)::INTEGER       AS quarter
+    d                                          AS date_id,
+    EXTRACT(YEAR    FROM d)::INTEGER           AS year,
+    EXTRACT(MONTH   FROM d)::INTEGER           AS month,
+    EXTRACT(DAY     FROM d)::INTEGER           AS day,
+    EXTRACT(ISODOW  FROM d)::INTEGER           AS weekday,
+    EXTRACT(QUARTER FROM d)::INTEGER           AS quarter
 FROM (
     SELECT sale_date     AS d FROM fact_sales
     UNION
