@@ -15,7 +15,7 @@
 - [x] ClickHouse MergeTree, Decimal, `ORDER BY` не назван уникальным ключом
 - [x] Сверка DuckDB ↔ ClickHouse: count и sum (`etl/ch_reconcile_log.txt`)
 - [x] Партиция по месяцу есть, смысл записан в `notes/z08_partitions.md`
-- [x] Сводка день × магазин, сумма совпала с фактом (`notes/z09_mart.md`)
+- [x] Сводка день × магазин, сумма совпала с фактом (`notes/z09.md`)
 - [x] Дашборд Metabase читает ClickHouse, фильтр периода, SQL виджетов в `dashboards/`
 - [x] Карточка и SQL за 2025 год дали одно число (`notes/z11_sverka.md`)
 - [x] README начинается с пяти шагов и устного пути данных

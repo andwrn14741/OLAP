@@ -93,13 +93,14 @@ def wait_ready() -> None:
 
 def session() -> str:
     props = request("GET", "/session/properties")
-    setup_token = props.get("setup-token")
-    if setup_token:
+    # В Metabase 0.52 setup-token остаётся в properties и после первого пользователя.
+    # Повторный POST /setup даёт 403. Вход — по has-user-setup.
+    if not props.get("has-user-setup"):
         created = request(
             "POST",
             "/setup",
             {
-                "token": setup_token,
+                "token": props["setup-token"],
                 "user": {
                     "email": EMAIL,
                     "password": PASSWORD,
