@@ -1,126 +1,54 @@
-# Проект OLAP
+# Сеть «АвтоДеталь» · OLAP
 
-Учебный проект по OLAP. Домен: **федеральная сеть магазинов автозапчастей «АвтоДеталь»**
-(41 точка в 8 регионах, розница, СТО и опт).
+Федеральная сеть магазинов автозапчастей: 41 точка, 8 регионов, продажи 2025 года.
+ФИО: Ворон Андрей Дмитриевич · Группа: ИИ-231
 
-- ФИО: Ворон Андрей Дмитриевич
-- Группа: ИИ-231
+Одна строка `fact_sales` = одна позиция заказа в магазине сети.
+Главная мера = валовой оборот `SUM(fact_sales.total_amount)` = **788 793 643.00** за 2025 год.
 
-## Как поднять ClickHouse
+## Как поднять
 
-> В методичке стенд лежит в папке `Стенд/`. В этом репозитории `docker-compose.yml` — в корне проекта.
+1. Стенд. Из корня репозитория: `docker compose up -d`, затем `bash scripts/fetch_ch_driver.sh` и `docker compose restart metabase`.
+2. Данные. `bash etl/run_etl.sh` кладёт витрину в DuckDB. `bash etl/load_clickhouse.sh` пересоздаёт её в ClickHouse (база `autoparts`) и пересчитывает сводку. Повтор не удваивает строки: таблицы очищаются перед вставкой.
+3. Эталон метрики. `sql/canonical_metric.sql` — оборот за 2025-01-01 … 2025-12-31. В ClickHouse: `docker exec -i olap_clickhouse clickhouse-client --database autoparts < sql/canonical_metric.sql`.
+4. Дашборд. `python3 scripts/setup_metabase.py`, затем http://localhost:3000 . Логин `andrej.voron@olap.local`, пароль `Avtodetal-2025`. Дашборд «Сеть АвтоДеталь», фильтр «Период» = весь 2025 год.
+5. Если что-то красное. ETL останавливается на `error()` в `etl/04_checks.sql`. Сверка DuckDB и ClickHouse печатается в конце `etl/load_clickhouse.sh` и лежит в `etl/ch_reconcile_log.txt`. Расхождение карточки и SQL — `notes/z11_sverka.md`.
 
-```bash
-cd ~/OLAP
-docker compose up -d
-./scripts/init_ch.sh
-```
+Порты: ClickHouse HTTP 8123, native 9000, Metabase 3000.
 
-`init_ch.sh` поднимает учебный sample курса `retail_dw`. Боевая витрина сети появится в базе `autoparts` на З07.
+`./scripts/init_ch.sh` поднимает учебный sample курса `retail_dw`. Наша витрина — база `autoparts`, её грузит шаг 2.
 
-## Порты
+## Как данные доходят до экрана
 
-- ClickHouse HTTP: 8123
-- ClickHouse native: 9000
-- Metabase: 3000
+Исходные CSV в `data/raw/` → `etl/run_etl.sh` (сначала справочники, потом факты, потом проверки) → те же таблицы в ClickHouse, `fact_sales` лежит по `(sale_date, store_id, product_id)` и режется по месяцу → эталон `sql/canonical_metric.sql` → карточка «Валовой оборот» с тем же периодом. Одна строка факта = позиция заказа в магазине. Главная мера = валовой оборот, возвратов в сырье нет.
 
-## Проверка стенда
+## Сырьё
 
-```bash
-curl http://localhost:8123/ping
-curl 'http://localhost:8123/?query=SELECT+1'
-docker compose ps
-```
-
-Ожидаемо: `Ok.`, затем `1`, оба контейнера в состоянии Up.
-
-## DuckDB
-
-```bash
-curl https://install.duckdb.org | sh
-~/.duckdb/cli/latest/duckdb :memory: "SELECT 42 AS answer"
-```
-
-Ожидаемо: `42`.
-
-Витрина:
-
-```bash
-cd ~/OLAP
-~/.duckdb/cli/latest/duckdb data/olap.duckdb < sql/ddl_duckdb.sql
-~/.duckdb/cli/latest/duckdb data/olap.duckdb < sql/load_duckdb.sql
-~/.duckdb/cli/latest/duckdb data/olap.duckdb < sql/checks_duckdb.sql
-```
-
-Повторная загрузка начинается с `TRUNCATE` и не удваивает продажи.
-
-## ELT (З05)
-
-```bash
-bash etl/run_etl.sh
-```
-
-Скрипт делает четыре шага:
-
-1. **DDL** — создаёт таблицы (`etl/01_ddl.sql`).
-2. **Справочники** — магазины, товары, клиенты, поставщики, перевозчики, календарь (`etl/02_load_dims.sql`).
-3. **Факты** — продажи, закупки, отгрузки (`etl/03_load_facts.sql`).
-4. **Проверки** — пустые ключи, диапазоны, дубли, «сироты», сверка числа строк с CSV (`etl/04_checks.sql`).
-
-Любая проверка через `error()` возвращает ненулевой код. `run_etl.sh` использует `set -e`, поэтому ETL останавливается.
-
-Повторный запуск перезаписывает данные. Доказательство двух прогонов: `etl/idempotency_log.txt`.
-
-Эталон оборота: `sql/canonical_metric.sql`. Зафиксированное число: **788 793 643.00**.
-
-## SCD2 (З06)
-
-`dim_product` хранит историю категории. С 1 июля 2025 антифриз G12, лампы H4/H7 и щётки стеклоочистителя переведены в другую категорию: старая строка закрывается, новая становится текущей.
-
-```bash
-~/.duckdb/cli/latest/duckdb data/olap.duckdb < sql/scd2_demo.sql
-```
-
-Факт связывается с версией на дату продажи: `sale_date >= valid_from` и `valid_to` пустой либо позже даты продажи. Если взять только `is_current`, январские щётки ошибочно попадут в новую категорию.
-
-## Где сырьё
-
-`data/raw/` — CSV сети «АвтоДеталь» за 2025 год. Файлы воспроизводятся командой `python3 scripts/generate_raw.py` (seed 42).
+`data/raw/` воспроизводится командой `python3 scripts/generate_raw.py` (seed 42). Папка смонтирована в ClickHouse как `/var/lib/clickhouse/user_files`.
 
 | Файл | Строк | Смысл |
 |---|---|---|
-| sales.csv | 65 000 | продажи клиентам, главный факт |
+| sales.csv | 65 000 | продажи, главный факт |
 | logistics.csv | 58 484 | отгрузки; около 10% заказов — самовывоз |
 | purchases.csv | 6 500 | закупки у поставщиков |
-| customers.csv | 2 400 | розница, СТО и опт |
-| products.csv | 68 | каталог, включая историю категории для З06 |
+| customers.csv | 2 400 | розница, СТО, опт |
+| products.csv | 68 | каталог и история категории |
 | stores.csv | 41 | магазины сети |
 | suppliers.csv | 12 | поставщики |
 | carriers.csv | 5 | перевозчики |
 
-Папка `data/raw/` примонтирована в контейнер как `/var/lib/clickhouse/user_files`.
+### sales.csv
 
-### sales.csv — продажи
+order_id, customer_id, store_id, product_id, product_name, quantity, price_per_unit, total_amount, sale_date.
+`total_amount` = quantity × price_per_unit.
 
-- order_id — ID заказа
-- customer_id — ID клиента
-- store_id — ID магазина сети
-- product_id — ID товара
-- product_name — наименование
-- quantity — количество штук
-- price_per_unit — розничная цена за штуку
-- total_amount — сумма позиции, равна quantity × price_per_unit
-- sale_date — дата продажи
+### purchases.csv
 
-### purchases.csv — закупки
+purchase_id, supplier_id, product_id, product_name, quantity, price_per_unit, total_amount, purchase_date.
 
-- purchase_id, supplier_id, product_id, product_name
-- quantity, price_per_unit, total_amount, purchase_date
+### logistics.csv
 
-### logistics.csv — логистика
-
-- shipment_id, order_id, carrier, product_id, product_name
-- quantity, price_per_unit (тариф доставки за штуку), total_amount, shipment_date
+shipment_id, order_id, carrier, product_id, product_name, quantity, price_per_unit (тариф доставки за штуку), total_amount, shipment_date.
 
 ### Справочники
 
@@ -130,4 +58,6 @@ bash etl/run_etl.sh
 - suppliers.csv — supplier_id, supplier_name, country
 - carriers.csv — carrier, delivery_type
 
-Пустой `valid_to` означает текущую версию товара.
+Пустой `valid_to` — текущая версия товара. С 2025-07-01 категория сменилась у антифриза G12, ламп H4/H7 и щёток. Демо: `sql/scd2_demo.sql`.
+
+Модель: `passport.md`, рисунок: `star_schema.md`, отказы: `cut.md`, чеклист сдачи: `checklist.md`.
