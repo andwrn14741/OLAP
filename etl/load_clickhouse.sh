@@ -85,4 +85,7 @@ if [[ $fail -ne 0 ]]; then
   exit 1
 fi
 
+echo "MART"
+bash etl/rebuild_mart.sh
+
 echo "ClickHouse load OK"
