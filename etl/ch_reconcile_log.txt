@@ -1,0 +1,14 @@
+З07. Сверка DuckDB и ClickHouse после полной перезагрузки.
+Повторный запуск load_clickhouse.sh оставил fact_sales = 65000 строк и оборот 788793643.00.
+
+Waiting for ClickHouse at http://localhost:8123 ...
+DDL
+LOAD
+RECONCILE
+OK  fact_sales.rows  65000
+OK  fact_sales.revenue  788793643.00
+OK  fact_purchases.rows  6500
+OK  fact_logistics.rows  58484
+OK  dim_product.rows  68
+OK  dim_store.rows  41
+ClickHouse load OK
