@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .DS_Store
 metabase-data/
+metabase/plugins/*
+!metabase/plugins/clickhouse.metabase-driver.jar
+!metabase/plugins/README.md
