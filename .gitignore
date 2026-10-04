@@ -1,0 +1,5 @@
+data/olap.duckdb.wal
+__pycache__/
+*.pyc
+.DS_Store
+metabase-data/

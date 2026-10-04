@@ -1,7 +1,8 @@
 -- ============================================================
--- З03. DDL для витрины «розничная продажа автозапчастей»
+-- З03. DDL витрины сети «АвтоДеталь»
 -- Движок: DuckDB
 -- Деньги: DECIMAL(18,2), не FLOAT
+-- SCD2 для dim_product подключается на З06; сейчас одна текущая строка на товар
 -- ============================================================
 
 DROP TABLE IF EXISTS fact_sales;
@@ -11,31 +12,42 @@ DROP TABLE IF EXISTS dim_product;
 DROP TABLE IF EXISTS dim_customer;
 DROP TABLE IF EXISTS dim_supplier;
 DROP TABLE IF EXISTS dim_carrier;
+DROP TABLE IF EXISTS dim_store;
 DROP TABLE IF EXISTS dim_date;
 
 -- ---------- Измерения ----------
 
+CREATE TABLE dim_store (
+    store_id      INTEGER      PRIMARY KEY,
+    store_name    VARCHAR      NOT NULL,
+    city          VARCHAR      NOT NULL,
+    region        VARCHAR      NOT NULL,
+    store_format  VARCHAR      NOT NULL
+);
+
 CREATE TABLE dim_product (
     product_id    INTEGER      PRIMARY KEY,
     product_name  VARCHAR      NOT NULL,
-    category      VARCHAR
+    category      VARCHAR      NOT NULL,
+    brand         VARCHAR      NOT NULL
 );
 
 CREATE TABLE dim_customer (
-    customer_id   VARCHAR      PRIMARY KEY,
-    customer_name VARCHAR,
-    region        VARCHAR
+    customer_id    VARCHAR     PRIMARY KEY,
+    customer_name  VARCHAR     NOT NULL,
+    customer_type  VARCHAR     NOT NULL,
+    region         VARCHAR     NOT NULL
 );
 
 CREATE TABLE dim_supplier (
-    supplier_id   VARCHAR      PRIMARY KEY,
-    supplier_name VARCHAR,
-    country       VARCHAR
+    supplier_id    VARCHAR     PRIMARY KEY,
+    supplier_name  VARCHAR     NOT NULL,
+    country        VARCHAR     NOT NULL
 );
 
 CREATE TABLE dim_carrier (
-    carrier       VARCHAR      PRIMARY KEY,
-    delivery_type VARCHAR
+    carrier        VARCHAR     PRIMARY KEY,
+    delivery_type  VARCHAR     NOT NULL
 );
 
 CREATE TABLE dim_date (
@@ -49,19 +61,20 @@ CREATE TABLE dim_date (
 
 -- ---------- Факты ----------
 
--- Одна строка fact_sales = одна позиция в заказе
+-- Одна строка fact_sales = одна позиция заказа в конкретном магазине сети
 CREATE TABLE fact_sales (
     order_id       INTEGER       NOT NULL,
     customer_id    VARCHAR       NOT NULL,
+    store_id       INTEGER       NOT NULL,
     product_id     INTEGER       NOT NULL,
-    product_name   VARCHAR       NOT NULL,   -- денормализация из сырья
+    product_name   VARCHAR       NOT NULL,
     quantity       INTEGER       NOT NULL,
     price_per_unit DECIMAL(18,2) NOT NULL,
     total_amount   DECIMAL(18,2) NOT NULL,
     sale_date      DATE          NOT NULL
 );
 
--- Одна строка fact_purchases = одна позиция в закупке
+-- Одна строка fact_purchases = одна позиция закупки у поставщика
 CREATE TABLE fact_purchases (
     purchase_id    INTEGER       NOT NULL,
     supplier_id    VARCHAR       NOT NULL,
@@ -73,7 +86,7 @@ CREATE TABLE fact_purchases (
     purchase_date  DATE          NOT NULL
 );
 
--- Одна строка fact_logistics = одна отгрузка по заказу
+-- Одна строка fact_logistics = одна отгрузка заказа. Самовывоз в факт не попадает.
 CREATE TABLE fact_logistics (
     shipment_id    INTEGER       NOT NULL,
     order_id       INTEGER       NOT NULL,
